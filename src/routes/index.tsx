@@ -1,24 +1,40 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { lazy, Suspense, useEffect, useState } from "react";
 
-// No head() here: the home route inherits title/description/og/twitter from
-// __root.tsx, and ships no og:image so serve-time hosting can inject the
-// project's social preview (explicit og:image or latest screenshot).
+const GameView = lazy(() =>
+  import("@/components/game/GameView").then((m) => ({ default: m.GameView })),
+);
+
+const title = "صيدلية النور — محاكي إدارة صيدلية ثلاثي الأبعاد";
+const description =
+  "العب وأدر صيدليتك الخاصة في عالم ثلاثي الأبعاد: تجول بين الرفوف، أضف الأدوية، نظّم المخزون وتابع الإحصائيات من جهاز الإدارة.";
+
 export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [
+      { title },
+      { name: "description", content: description },
+      { property: "og:title", content: title },
+      { property: "og:description", content: description },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+    ],
+  }),
   component: Index,
 });
 
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
 function Index() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
-    </div>
+    <main className="h-dvh w-full overflow-hidden bg-background">
+      <h1 className="sr-only">صيدلية النور — محاكي إدارة صيدلية ثلاثي الأبعاد</h1>
+      {mounted && (
+        <Suspense fallback={<div className="h-dvh w-full bg-background" />}>
+          <GameView />
+        </Suspense>
+      )}
+    </main>
   );
 }
