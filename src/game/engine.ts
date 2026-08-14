@@ -188,18 +188,33 @@ export class PharmacyEngine {
     bounce.position.set(-6, -4, -6);
     s.add(bounce);
 
-    // ceiling panel lights with slight intensity variation
+    // Ceiling panel lights. Every dynamic light multiplies the shader cost of
+    // every lit material, so we keep a small, evenly spread set (6 on desktop,
+    // 4 on low/medium) and lean on the emissive panels + IBL for the rest.
     const panelZ = [-8, -4, 0, 4, 8];
     const panelX = [-11, -7.4, -3.8, 0, 3.8, 7.4, 11];
-    let li = 0;
-    for (const px of [-9.5, -3.5, 3.5, 9.5])
-      for (const pz of [-6.5, -1, 4.5, 8.5]) {
-        li++;
-        const warm = li % 3 === 0;
-        const l = new THREE.PointLight(warm ? 0xffe9cf : 0xeaf6ff, warm ? 5.6 : 6.8, 12, 2);
-        l.position.set(px, 3.1, pz);
-        s.add(l);
-      }
+    const lampSpots: [number, number][] =
+      this.quality === "high"
+        ? [
+            [-9.5, -6.5],
+            [-9.5, 4.5],
+            [0, -1],
+            [0, 8.5],
+            [9.5, -6.5],
+            [9.5, 4.5],
+          ]
+        : [
+            [-8, -4],
+            [-8, 5],
+            [8, -4],
+            [8, 5],
+          ];
+    lampSpots.forEach(([px, pz], i) => {
+      const warm = i % 3 === 0;
+      const l = new THREE.PointLight(warm ? 0xffe9cf : 0xeaf6ff, warm ? 9.5 : 11, 18, 2);
+      l.position.set(px, 3.1, pz);
+      s.add(l);
+    });
 
     /* ---- linear neon tubes running the length of each aisle */
     for (const az of [-7, -3.2, 0.6, 4.4, 8]) {
@@ -215,12 +230,13 @@ export class PharmacyEngine {
       tube.position.set(-6.4, 3.15, az);
       tube.castShadow = false;
       s.add(tube);
-      if (az !== 8 && az !== -7) {
-        const glow = new THREE.PointLight(0xe8f6ff, 2.6, 9, 2);
+      if (az === 0.6) {
+        const glow = new THREE.PointLight(0xe8f6ff, 4.2, 13, 2);
         glow.position.set(-6.4, 3.0, az);
         s.add(glow);
       }
     }
+
 
     /* ---- floor */
     const floorMat = new THREE.MeshStandardMaterial({
