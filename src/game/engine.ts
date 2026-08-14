@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import type { Medicine, Shelf } from "./types";
+import { PHARMACY_FULL_NAME, PHARMACY_LATIN } from "./format";
 import {
   SHELF_SLOTS,
   box,
@@ -9,6 +10,7 @@ import {
   contactShadow,
   cylinder,
   entranceDirt,
+  isShared,
   floorRoughnessTexture,
   fridgeTempTexture,
   labelTexture,
@@ -110,20 +112,37 @@ export class PharmacyEngine {
   private frameId = 0;
   private ro?: ResizeObserver;
   private t = 0;
+  private quality: "low" | "medium" | "high" = "high";
+  /** Signature per shelf so we only rebuild the shelves that actually changed. */
+  private shelfSig = new Map<string, string>();
+  private _v1 = new THREE.Vector3();
+  private _v2 = new THREE.Vector3();
+  private _v3 = new THREE.Vector3();
+  private _center = new THREE.Vector2(0, 0);
+  private _dir = new THREE.Vector3();
+  private _step = new THREE.Vector3();
+
 
   constructor(private canvas: HTMLCanvasElement, quality: "low" | "medium" | "high") {
     this.renderer = new THREE.WebGLRenderer({
       canvas,
       antialias: quality !== "low",
       powerPreference: "high-performance",
+      failIfMajorPerformanceCaveat: false,
     });
-    const dpr = quality === "high" ? 2 : quality === "medium" ? 1.5 : 1;
+    // phones lie about devicePixelRatio (often 3-4x) — rendering above ~1.75x
+    // costs a lot of fill rate for no visible gain on a 5-6" screen.
+    const coarse =
+      typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches;
+    const dpr = quality === "high" ? (coarse ? 1.75 : 2) : quality === "medium" ? 1.5 : 1;
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, dpr));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 0.98;
     this.renderer.shadowMap.enabled = quality !== "low";
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.quality = quality;
+
 
     this.camera = new THREE.PerspectiveCamera(this.fov, 1, 0.05, 120);
     this.scene.background = new THREE.Color("#dfecf3");
@@ -157,7 +176,7 @@ export class PharmacyEngine {
     const sun = new THREE.DirectionalLight(0xffeedd, 0.85);
     sun.position.set(6, 13, 19);
     sun.castShadow = true;
-    sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.mapSize.set(quality === "high" ? 2048 : 1024, quality === "high" ? 2048 : 1024);
     sun.shadow.camera.left = -22;
     sun.shadow.camera.right = 22;
     sun.shadow.camera.top = 20;
@@ -171,18 +190,33 @@ export class PharmacyEngine {
     bounce.position.set(-6, -4, -6);
     s.add(bounce);
 
-    // ceiling panel lights with slight intensity variation
+    // Ceiling panel lights. Every dynamic light multiplies the shader cost of
+    // every lit material, so we keep a small, evenly spread set (6 on desktop,
+    // 4 on low/medium) and lean on the emissive panels + IBL for the rest.
     const panelZ = [-8, -4, 0, 4, 8];
     const panelX = [-11, -7.4, -3.8, 0, 3.8, 7.4, 11];
-    let li = 0;
-    for (const px of [-9.5, -3.5, 3.5, 9.5])
-      for (const pz of [-6.5, -1, 4.5, 8.5]) {
-        li++;
-        const warm = li % 3 === 0;
-        const l = new THREE.PointLight(warm ? 0xffe9cf : 0xeaf6ff, warm ? 5.6 : 6.8, 12, 2);
-        l.position.set(px, 3.1, pz);
-        s.add(l);
-      }
+    const lampSpots: [number, number][] =
+      this.quality === "high"
+        ? [
+            [-9.5, -6.5],
+            [-9.5, 4.5],
+            [0, -1],
+            [0, 8.5],
+            [9.5, -6.5],
+            [9.5, 4.5],
+          ]
+        : [
+            [-8, -4],
+            [-8, 5],
+            [8, -4],
+            [8, 5],
+          ];
+    lampSpots.forEach(([px, pz], i) => {
+      const warm = i % 3 === 0;
+      const l = new THREE.PointLight(warm ? 0xffe9cf : 0xeaf6ff, warm ? 9.5 : 11, 18, 2);
+      l.position.set(px, 3.1, pz);
+      s.add(l);
+    });
 
     /* ---- linear neon tubes running the length of each aisle */
     for (const az of [-7, -3.2, 0.6, 4.4, 8]) {
@@ -198,12 +232,13 @@ export class PharmacyEngine {
       tube.position.set(-6.4, 3.15, az);
       tube.castShadow = false;
       s.add(tube);
-      if (az !== 8 && az !== -7) {
-        const glow = new THREE.PointLight(0xe8f6ff, 2.6, 9, 2);
+      if (az === 0.6) {
+        const glow = new THREE.PointLight(0xe8f6ff, 4.2, 13, 2);
         glow.position.set(-6.4, 3.0, az);
         s.add(glow);
       }
     }
+
 
     /* ---- floor */
     const floorMat = new THREE.MeshStandardMaterial({
@@ -355,7 +390,7 @@ export class PharmacyEngine {
     signBoard.position.set(0, 4.05, HD + 0.05);
     s.add(signBoard);
     const sign = signPlane(
-      labelTexture("صيدلية النور", "PHARMACY  •  24H", "#12706a", "#ffffff", 1024, 200),
+      labelTexture(PHARMACY_FULL_NAME, `${PHARMACY_LATIN}  •  24H`, "#12706a", "#ffffff", 1024, 200),
       10.2,
       1.28,
     );
@@ -666,7 +701,7 @@ export class PharmacyEngine {
     const logoBg = box(1.9, 1.0, 0.05, "#ffffff", { rough: 0.5 });
     logoBg.position.set(0.8, 2.9, -9.86);
     s.add(logoBg);
-    const logoFace = signPlane(labelTexture("صيدلية النور", "AL-NOOR PHARMACY", "#0e5f5a", "#ffffff", 640, 300), 1.8, 0.9);
+    const logoFace = signPlane(labelTexture(PHARMACY_FULL_NAME, PHARMACY_LATIN, "#0e5f5a", "#ffffff", 640, 300), 1.8, 0.9);
     logoFace.position.set(0.8, 2.9, -9.82);
     s.add(logoFace);
 
@@ -739,7 +774,7 @@ export class PharmacyEngine {
     x.shadowBlur = 0;
     x.globalAlpha = 0.5;
     x.font = `500 22px "Cairo", sans-serif`;
-    x.fillText("صيدلية النور", 256, 150);
+    x.fillText(PHARMACY_FULL_NAME, 256, 150);
     const t = new THREE.CanvasTexture(c);
     t.colorSpace = THREE.SRGBColorSpace;
     return t;
@@ -984,7 +1019,6 @@ export class PharmacyEngine {
       [12.3, 9.2],
       [-12.3, 9.0],
       [-12.3, 2.0],
-      [0.4, 9.3],
       [-2.6, 9.0],
     ] as [number, number][])
       this.plant(px, pz);

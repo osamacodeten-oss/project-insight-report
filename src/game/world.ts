@@ -11,6 +11,18 @@ export const geo = {
 };
 
 const matCache = new Map<string, THREE.MeshStandardMaterial>();
+const cachedMaterials = new Set<THREE.Material>();
+const cachedGeometries = new Set<THREE.BufferGeometry>(Object.values(geo));
+
+/** True when the material/geometry is shared across the whole scene and must
+ *  never be disposed while other meshes still reference it. */
+export function isShared(res: THREE.Material | THREE.BufferGeometry) {
+  return (
+    cachedMaterials.has(res as THREE.Material) ||
+    cachedGeometries.has(res as THREE.BufferGeometry)
+  );
+}
+
 export function mat(
   color: string,
   opts: { rough?: number; metal?: number; emissive?: string; opacity?: number; emissiveIntensity?: number } = {},
@@ -28,6 +40,8 @@ export function mat(
       opacity: opts.opacity ?? 1,
     });
     matCache.set(key, m);
+    cachedMaterials.add(m);
+
   }
   return m;
 }

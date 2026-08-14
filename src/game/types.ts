@@ -32,7 +32,10 @@ export interface Medicine {
   shelfId: string | null;
   color: string;
   pack: PackStyle;
+  /** Optional square thumbnail (data-URL or https) shown in the UI. */
+  image?: string;
 }
+
 
 export interface Shelf {
   id: string;
@@ -55,6 +58,8 @@ export interface SaveData {
   medicines: Medicine[];
   shelves: Shelf[];
   settings: Settings;
+  /** Cash on hand, in Yemeni Rial. */
+  balance: number;
   player: { x: number; z: number; yaw: number };
   visited: boolean;
 }
