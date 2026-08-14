@@ -40,6 +40,8 @@ export function mat(
       opacity: opts.opacity ?? 1,
     });
     matCache.set(key, m);
+    cachedMaterials.add(m);
+
   }
   return m;
 }
