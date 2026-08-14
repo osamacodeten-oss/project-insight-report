@@ -62,9 +62,11 @@
 }
 
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.129 0.042 264.695);
+  --radius: 1rem;
+  --font-display: "Cairo", "Outfit", system-ui, sans-serif;
+  --font-body: "Cairo", system-ui, sans-serif;
+  --background: oklch(0.985 0.008 190);
+  --foreground: oklch(0.24 0.03 210);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.129 0.042 264.695);
   --popover: oklch(1 0 0);
@@ -142,3 +144,105 @@
     color: var(--color-foreground);
   }
 }
+
+
+/* ---------------------------------------------------------------- pharmacy design system */
+@theme inline {
+  --font-sans: var(--font-body);
+  --font-display: var(--font-display);
+  --color-mint: var(--mint);
+  --color-deep: var(--deep);
+  --color-warn: var(--warn);
+  --color-danger: var(--danger);
+}
+
+:root {
+  --primary: oklch(0.52 0.11 183);
+  --primary-foreground: oklch(0.99 0.01 190);
+  --secondary: oklch(0.95 0.02 190);
+  --secondary-foreground: oklch(0.3 0.04 200);
+  --muted: oklch(0.95 0.012 200);
+  --muted-foreground: oklch(0.52 0.02 210);
+  --accent: oklch(0.88 0.07 178);
+  --accent-foreground: oklch(0.28 0.05 200);
+  --card: oklch(0.995 0.004 190);
+  --card-foreground: oklch(0.24 0.03 210);
+  --border: oklch(0.9 0.015 195);
+  --input: oklch(0.93 0.012 195);
+  --ring: oklch(0.62 0.1 183);
+  --mint: oklch(0.78 0.13 172);
+  --deep: oklch(0.35 0.06 195);
+  --warn: oklch(0.78 0.15 78);
+  --danger: oklch(0.6 0.19 22);
+  --glass: oklch(1 0 0 / 0.72);
+  --glass-border: oklch(1 0 0 / 0.55);
+  --shadow-panel: 0 24px 70px -20px oklch(0.3 0.05 200 / 0.45);
+  --shadow-soft: 0 8px 24px -10px oklch(0.3 0.05 200 / 0.35);
+}
+
+.dark {
+  --background: oklch(0.19 0.02 210);
+  --foreground: oklch(0.96 0.01 190);
+  --card: oklch(0.24 0.025 210);
+  --card-foreground: oklch(0.96 0.01 190);
+  --primary: oklch(0.72 0.12 178);
+  --primary-foreground: oklch(0.18 0.03 205);
+  --secondary: oklch(0.3 0.03 205);
+  --secondary-foreground: oklch(0.95 0.01 190);
+  --muted: oklch(0.29 0.025 205);
+  --muted-foreground: oklch(0.72 0.02 200);
+  --accent: oklch(0.4 0.06 185);
+  --accent-foreground: oklch(0.96 0.01 190);
+  --border: oklch(1 0 0 / 0.12);
+  --input: oklch(1 0 0 / 0.16);
+  --glass: oklch(0.24 0.025 210 / 0.78);
+  --glass-border: oklch(1 0 0 / 0.12);
+}
+
+body {
+  font-family: var(--font-body);
+  overscroll-behavior: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@utility glass-panel {
+  background: var(--glass);
+  backdrop-filter: blur(22px) saturate(140%);
+  -webkit-backdrop-filter: blur(22px) saturate(140%);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-panel);
+}
+
+@utility touch-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 999px;
+  transition: transform 0.16s cubic-bezier(0.3, 1.4, 0.5, 1), box-shadow 0.2s, background-color 0.2s;
+  box-shadow: var(--shadow-soft);
+}
+@utility touch-btn-press {
+  transform: scale(0.93);
+}
+
+@keyframes panel-in {
+  from { opacity: 0; transform: translateY(18px) scale(0.965); filter: blur(6px); }
+  to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+}
+@keyframes fade-in { from { opacity: 0 } to { opacity: 1 } }
+@keyframes pulse-ring {
+  0%,100% { transform: scale(1); opacity: 0.75 }
+  50% { transform: scale(1.25); opacity: 0.25 }
+}
+@keyframes rise { from { opacity:0; transform: translateY(10px) } to { opacity:1; transform: none } }
+
+.animate-panel-in { animation: panel-in 0.34s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.animate-fade-in { animation: fade-in 0.4s ease both; }
+.animate-rise { animation: rise 0.35s cubic-bezier(0.22,1,0.36,1) both; }
+.animate-pulse-ring { animation: pulse-ring 1.8s ease-in-out infinite; }
+
+::-webkit-scrollbar { width: 8px; height: 8px }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px }
