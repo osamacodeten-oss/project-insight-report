@@ -110,6 +110,16 @@ export class PharmacyEngine {
   private frameId = 0;
   private ro?: ResizeObserver;
   private t = 0;
+  private quality: "low" | "medium" | "high" = "high";
+  /** Signature per shelf so we only rebuild the shelves that actually changed. */
+  private shelfSig = new Map<string, string>();
+  private _v1 = new THREE.Vector3();
+  private _v2 = new THREE.Vector3();
+  private _v3 = new THREE.Vector3();
+  private _center = new THREE.Vector2(0, 0);
+  private _dir = new THREE.Vector3();
+  private _step = new THREE.Vector3();
+
 
   constructor(private canvas: HTMLCanvasElement, quality: "low" | "medium" | "high") {
     this.renderer = new THREE.WebGLRenderer({
