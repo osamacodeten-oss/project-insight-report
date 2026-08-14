@@ -152,12 +152,31 @@ export const useGame = create<GameStore>()(
             return { ...m, stock: m.stock - n, warehouse: (m.warehouse ?? 0) + n };
           }),
         }),
-      purchase: (id, qty) =>
+      purchase: (id, qty) => {
+        const n = Math.max(0, Math.round(qty));
+        const med = get().medicines.find((m) => m.id === id);
+        if (!med || n === 0) return false;
+        const cost = purchaseCost(med.price, n);
+        if (cost > get().balance) return false;
         set({
+          balance: get().balance - cost,
           medicines: get().medicines.map((m) =>
-            m.id === id ? { ...m, warehouse: (m.warehouse ?? 0) + Math.max(0, qty) } : m,
+            m.id === id ? { ...m, warehouse: (m.warehouse ?? 0) + n } : m,
           ),
-        }),
+        });
+        return true;
+      },
+      sell: (id, qty) => {
+        const med = get().medicines.find((m) => m.id === id);
+        if (!med) return false;
+        const n = Math.max(0, Math.min(Math.round(qty), med.stock));
+        if (n === 0) return false;
+        set({
+          balance: get().balance + Math.round(med.price * n),
+          medicines: get().medicines.map((m) => (m.id === id ? { ...m, stock: m.stock - n } : m)),
+        });
+        return true;
+      },
 
       setSettings: (patch) => set({ settings: { ...get().settings, ...patch } }),
       setPlayer: (player) => set({ player }),
@@ -168,6 +187,7 @@ export const useGame = create<GameStore>()(
           medicines: seedMedicines,
           shelves: seedShelves,
           settings: defaultSettings,
+          balance: 25000,
           player: { x: 0, z: 8, yaw: 0 },
           visited: false,
         }),
@@ -175,21 +195,24 @@ export const useGame = create<GameStore>()(
     {
       name: "pharmasim-save-v1",
       storage: createJSONStorage(() => localStorage),
-      version: 2,
+      version: 3,
       migrate: (state: unknown) => {
         const s = state as Partial<SaveData>;
         if (s?.medicines)
           s.medicines = s.medicines.map((m) => ({ ...m, warehouse: m.warehouse ?? 0 }));
+        if (typeof s?.balance !== "number") s.balance = 25000;
         return s as SaveData;
       },
       partialize: (s) => ({
         medicines: s.medicines,
         shelves: s.shelves,
         settings: s.settings,
+        balance: s.balance,
         player: s.player,
         visited: s.visited,
       }),
     },
+
   ),
 );
 
