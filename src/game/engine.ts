@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import type { Medicine, Shelf } from "./types";
+import { PHARMACY_FULL_NAME, PHARMACY_LATIN } from "./format";
 import {
   SHELF_SLOTS,
   box,
@@ -9,6 +10,7 @@ import {
   contactShadow,
   cylinder,
   entranceDirt,
+  isShared,
   floorRoughnessTexture,
   fridgeTempTexture,
   labelTexture,
@@ -174,7 +176,7 @@ export class PharmacyEngine {
     const sun = new THREE.DirectionalLight(0xffeedd, 0.85);
     sun.position.set(6, 13, 19);
     sun.castShadow = true;
-    sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.mapSize.set(quality === "high" ? 2048 : 1024, quality === "high" ? 2048 : 1024);
     sun.shadow.camera.left = -22;
     sun.shadow.camera.right = 22;
     sun.shadow.camera.top = 20;
@@ -388,7 +390,7 @@ export class PharmacyEngine {
     signBoard.position.set(0, 4.05, HD + 0.05);
     s.add(signBoard);
     const sign = signPlane(
-      labelTexture("صيدلية النور", "PHARMACY  •  24H", "#12706a", "#ffffff", 1024, 200),
+      labelTexture(PHARMACY_FULL_NAME, `${PHARMACY_LATIN}  •  24H`, "#12706a", "#ffffff", 1024, 200),
       10.2,
       1.28,
     );
@@ -699,7 +701,7 @@ export class PharmacyEngine {
     const logoBg = box(1.9, 1.0, 0.05, "#ffffff", { rough: 0.5 });
     logoBg.position.set(0.8, 2.9, -9.86);
     s.add(logoBg);
-    const logoFace = signPlane(labelTexture("صيدلية النور", "AL-NOOR PHARMACY", "#0e5f5a", "#ffffff", 640, 300), 1.8, 0.9);
+    const logoFace = signPlane(labelTexture(PHARMACY_FULL_NAME, PHARMACY_LATIN, "#0e5f5a", "#ffffff", 640, 300), 1.8, 0.9);
     logoFace.position.set(0.8, 2.9, -9.82);
     s.add(logoFace);
 
@@ -772,7 +774,7 @@ export class PharmacyEngine {
     x.shadowBlur = 0;
     x.globalAlpha = 0.5;
     x.font = `500 22px "Cairo", sans-serif`;
-    x.fillText("صيدلية النور", 256, 150);
+    x.fillText(PHARMACY_FULL_NAME, 256, 150);
     const t = new THREE.CanvasTexture(c);
     t.colorSpace = THREE.SRGBColorSpace;
     return t;
@@ -1017,7 +1019,6 @@ export class PharmacyEngine {
       [12.3, 9.2],
       [-12.3, 9.0],
       [-12.3, 2.0],
-      [0.4, 9.3],
       [-2.6, 9.0],
     ] as [number, number][])
       this.plant(px, pz);
