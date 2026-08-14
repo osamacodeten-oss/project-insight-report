@@ -91,8 +91,11 @@ interface GameStore extends SaveData {
   stockShelf: (id: string, qty: number) => void;
   /** Return units from the display shelf back to the storage room. */
   stockWarehouse: (id: string, qty: number) => void;
-  /** Purchase new units — they always land in the storage room first. */
-  purchase: (id: string, qty: number) => void;
+  /** Purchase new units — they always land in the storage room first.
+   *  Returns false when the balance is not enough. */
+  purchase: (id: string, qty: number) => boolean;
+  /** Sell units straight off the shelf (adds the price to the balance). */
+  sell: (id: string, qty: number) => boolean;
   setSettings: (patch: Partial<Settings>) => void;
   setPlayer: (p: { x: number; z: number; yaw: number }) => void;
   setVisited: (v: boolean) => void;
@@ -106,8 +109,10 @@ export const useGame = create<GameStore>()(
       medicines: seedMedicines,
       shelves: seedShelves,
       settings: defaultSettings,
+      balance: 25000,
       player: { x: 0, z: 8, yaw: 0 },
       visited: false,
+
 
       addShelf: (s) => {
         const used = new Set(get().shelves.map((x) => x.slot));
