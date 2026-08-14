@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type { Medicine, SaveData, Settings, Shelf, Category } from "./types";
+import { purchaseCost } from "./format";
+
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
