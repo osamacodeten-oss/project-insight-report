@@ -116,14 +116,21 @@ export class PharmacyEngine {
       canvas,
       antialias: quality !== "low",
       powerPreference: "high-performance",
+      failIfMajorPerformanceCaveat: false,
     });
-    const dpr = quality === "high" ? 2 : quality === "medium" ? 1.5 : 1;
+    // phones lie about devicePixelRatio (often 3-4x) — rendering above ~1.75x
+    // costs a lot of fill rate for no visible gain on a 5-6" screen.
+    const coarse =
+      typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches;
+    const dpr = quality === "high" ? (coarse ? 1.75 : 2) : quality === "medium" ? 1.5 : 1;
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, dpr));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 0.98;
     this.renderer.shadowMap.enabled = quality !== "low";
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.quality = quality;
+
 
     this.camera = new THREE.PerspectiveCamera(this.fov, 1, 0.05, 120);
     this.scene.background = new THREE.Color("#dfecf3");
