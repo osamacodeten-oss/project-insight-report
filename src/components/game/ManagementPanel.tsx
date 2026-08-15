@@ -15,7 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { useGame, SHELF_COLORS, futureDate } from "@/game/store";
-import { CATEGORIES, type Category, type Medicine, type PackStyle } from "@/game/types";
+import { CATEGORIES, type Category, type Medicine, type PackStyle, type SaveData } from "@/game/types";
 import { audio } from "@/game/audio";
 import { PHARMACY_FULL_NAME, money, num, purchaseCost } from "@/game/format";
 import { parseSave } from "@/game/schema";
@@ -257,12 +257,16 @@ function MedicineDialog({ value, onClose }: { value: Medicine | "new"; onClose: 
         shelfId: shelves[0]?.id ?? null,
         color: SHELF_COLORS[0]!,
         pack: "box",
-        image: undefined,
       }
     : value;
   const [form, setForm] = useState(base);
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
+  const setImage = (v: string | undefined) =>
+    setForm((f) => {
+      const { image: _drop, ...rest } = f;
+      return v ? { ...rest, image: v } : rest;
+    });
 
   const save = () => {
     if (!form.name.trim()) {
@@ -368,13 +372,13 @@ function MedicineDialog({ value, onClose }: { value: Medicine | "new"; onClose: 
                 accept="image/*"
                 onChange={(e) => {
                   const f = e.target.files?.[0];
-                  if (f) void thumbnail(f).then((d) => set("image", d));
+                  if (f) void thumbnail(f).then(setImage);
                 }}
                 className="text-xs"
               />
               {form.image && (
                 <button
-                  onClick={() => set("image", undefined)}
+                  onClick={() => setImage(undefined)}
                   className={`${btn} bg-danger/12 text-danger !px-3`}
                 >
                   إزالة
@@ -721,7 +725,7 @@ function SettingsTab() {
           setMsg(`ملف غير صالح: ${res.error}`);
           return;
         }
-        importSave(res.data);
+        importSave(res.data as unknown as Partial<SaveData>);
         audio.success();
         setMsg("تم استيراد النسخة الاحتياطية بنجاح");
       } catch {
