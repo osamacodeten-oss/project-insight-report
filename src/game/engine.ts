@@ -176,7 +176,8 @@ export class PharmacyEngine {
     const sun = new THREE.DirectionalLight(0xffeedd, 0.85);
     sun.position.set(6, 13, 19);
     sun.castShadow = true;
-    sun.shadow.mapSize.set(quality === "high" ? 2048 : 1024, quality === "high" ? 2048 : 1024);
+    const shadowSize = this.quality === "high" ? 2048 : 1024;
+    sun.shadow.mapSize.set(shadowSize, shadowSize);
     sun.shadow.camera.left = -22;
     sun.shadow.camera.right = 22;
     sun.shadow.camera.top = 20;
@@ -1053,30 +1054,68 @@ export class PharmacyEngine {
 
   /* -------------------------------------------------------------- shelves */
 
+  /** Signature that captures everything a shelf's 3D build depends on. */
+  private signature(shelf: Shelf, meds: Medicine[]) {
+    const on = meds
+      .filter((m) => m.shelfId === shelf.id)
+      .map((m) => `${m.id}:${m.name}:${m.stock}:${m.color}:${m.pack}:${m.price}:${m.expiry}`)
+      .join("|");
+    return `${shelf.name}#${shelf.category}#${shelf.color}#${shelf.slot}#${on}`;
+  }
+
   syncShelves(shelves: Shelf[], meds: Medicine[]) {
-    for (const g of this.shelfGroups.values()) {
+    const keep = new Set(shelves.map((s) => s.id));
+
+    // drop shelves that no longer exist
+    for (const [id, g] of this.shelfGroups) {
+      if (keep.has(id)) continue;
       this.scene.remove(g);
       disposeGroup(g);
+      this.shelfGroups.delete(id);
+      this.shelfSig.delete(id);
     }
-    this.shelfGroups.clear();
-    this.shelfLabels = [];
-    this.colliders = this.colliders.filter((c) => !(c as Collider & { shelf?: boolean }).shelf);
-    this.interactables = this.interactables.filter((i) => i.focus.kind !== "shelf");
 
     for (const shelf of shelves) {
+      const sig = this.signature(shelf, meds);
+      if (this.shelfSig.get(shelf.id) === sig && this.shelfGroups.has(shelf.id)) continue;
+
+      const old = this.shelfGroups.get(shelf.id);
+      if (old) {
+        this.scene.remove(old);
+        disposeGroup(old);
+        this.shelfGroups.delete(shelf.id);
+      }
+
       const slot = SHELF_SLOTS[shelf.slot % SHELF_SLOTS.length]!;
       const { group, width, depth, label } = buildShelf(shelf, meds);
       group.position.set(slot.x, 0, slot.z);
       group.rotation.y = slot.rot;
-      group.scale.setScalar(0.001);
-      group.userData['grow'] = 0;
+      group.scale.setScalar(old ? 1 : 0.001);
+      group.userData['grow'] = old ? 1 : 0;
+      group.userData['dims'] = [width, depth];
       this.scene.add(group);
       this.shelfGroups.set(shelf.id, group);
-      this.shelfLabels.push({ sprite: label, group });
+      this.shelfSig.set(shelf.id, sig);
 
+      group.traverse((o) => {
+        if ((o as THREE.Mesh).isMesh) o.userData['shelfId'] = shelf.id;
+      });
+      this.shelfLabels.push({ sprite: label, group });
+    }
+
+    // colliders + interactables are cheap: rebuild the shelf-scoped ones
+    this.colliders = this.colliders.filter((c) => !(c as Collider & { shelf?: boolean }).shelf);
+    this.interactables = this.interactables.filter((i) => i.focus.kind !== "shelf");
+    this.shelfLabels = this.shelfLabels.filter((l) => l.group.parent === this.scene);
+
+    for (const shelf of shelves) {
+      const group = this.shelfGroups.get(shelf.id);
+      if (!group) continue;
+      const slot = SHELF_SLOTS[shelf.slot % SHELF_SLOTS.length]!;
       const rotated = Math.abs(Math.sin(slot.rot)) > 0.5;
-      const w = rotated ? depth : width;
-      const d = rotated ? width : depth;
+      const [gw, gd] = (group.userData['dims'] as [number, number] | undefined) ?? [1.9, 0.7];
+      const w = rotated ? gd : gw;
+      const d = rotated ? gw : gd;
       const col: Collider & { shelf?: boolean } = {
         minX: slot.x - w / 2,
         maxX: slot.x + w / 2,
@@ -1085,10 +1124,6 @@ export class PharmacyEngine {
       };
       col.shelf = true;
       this.colliders.push(col);
-
-      group.traverse((o) => {
-        if ((o as THREE.Mesh).isMesh) o.userData['shelfId'] = shelf.id;
-      });
       this.interactables.push({ obj: group, focus: { kind: "shelf", label: shelf.name, id: shelf.id } });
     }
 
@@ -1096,6 +1131,7 @@ export class PharmacyEngine {
     this.syncStorage(meds);
     this.updateMonitor(meds.length, shelves.length);
   }
+
 
   /** Stock the cold-storage fridge from the cold-chain medicines in the database. */
   private fillFridge(meds: Medicine[]) {

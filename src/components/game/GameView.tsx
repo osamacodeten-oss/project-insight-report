@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Boxes, Hand, Menu, PersonStanding, X } from "lucide-react";
 import { useGame } from "@/game/store";
+import { PHARMACY_FULL_NAME, money, daysUntil } from "@/game/format";
 import { PharmacyEngine, type Focus } from "@/game/engine";
 import { audio } from "@/game/audio";
 import { Joystick } from "./Joystick";
@@ -21,7 +22,7 @@ export function GameView() {
   const [running, setRunning] = useState(false);
 
   const store = useGame();
-  const { shelves, medicines, settings, player, setPlayer } = store;
+  const { shelves, medicines, settings, player, setPlayer, balance } = store;
 
   /* ---- engine boot */
   useEffect(() => {
@@ -162,9 +163,7 @@ export function GameView() {
   const shelf = shelves.find((s) => s.id === shelfId);
   const shelfMeds = medicines.filter((m) => m.shelfId === shelfId);
   const aimedMed = focus?.medId ? medicines.find((m) => m.id === focus.medId) : undefined;
-  const expiryDays = aimedMed
-    ? Math.round((Date.parse(aimedMed.expiry) - Date.now()) / 86400000)
-    : 0;
+  const expiryDays = aimedMed ? daysUntil(aimedMed.expiry) : 0;
 
   return (
     <div className="relative h-dvh w-full overflow-hidden bg-background" dir="rtl">
@@ -190,17 +189,26 @@ export function GameView() {
               className="glass-panel animate-rise pointer-events-none absolute left-1/2 top-[54%] z-10 w-[19rem] max-w-[86vw] -translate-x-1/2 rounded-2xl p-3 shadow-[var(--shadow-panel)]"
             >
               <div className="flex items-start gap-2.5">
-                <span
-                  className="mt-0.5 size-9 shrink-0 rounded-lg"
-                  style={{ background: aimedMed.color }}
-                />
+                {aimedMed.image ? (
+                  <img
+                    src={aimedMed.image}
+                    alt={aimedMed.name}
+                    loading="lazy"
+                    className="mt-0.5 size-11 shrink-0 rounded-lg object-cover"
+                  />
+                ) : (
+                  <span
+                    className="mt-0.5 size-11 shrink-0 rounded-lg"
+                    style={{ background: aimedMed.color }}
+                  />
+                )}
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-bold">{aimedMed.name}</p>
                   <p className="truncate text-[11px] text-muted-foreground">
                     {aimedMed.description}
                   </p>
                 </div>
-                <p className="shrink-0 text-sm font-bold text-primary">{aimedMed.price} ر.س</p>
+                <p className="shrink-0 text-sm font-bold text-primary">{money(aimedMed.price)}</p>
               </div>
               <div className="mt-2.5 grid grid-cols-4 gap-1.5 text-center">
                 <div className="rounded-xl bg-muted/70 py-1.5">
@@ -238,10 +246,11 @@ export function GameView() {
 
           <div className="absolute inset-x-0 top-0 z-10 flex items-start justify-between p-3">
             <div className="glass-panel rounded-2xl px-3.5 py-2">
-              <p className="font-display text-sm font-bold leading-tight">صيدلية النور</p>
+              <p className="font-display text-sm font-bold leading-tight">{PHARMACY_FULL_NAME}</p>
               <p className="text-[11px] text-muted-foreground">
                 {medicines.length} صنف • {shelves.length} رف
               </p>
+              <p className="text-[11px] font-bold text-primary">{money(balance)}</p>
             </div>
             <button onClick={() => { audio.click(); setManageTab("inventory"); setPanel("manage"); }} className={`${btn} size-12 rounded-2xl`} aria-label="القائمة">
               <Menu className="size-5" />
@@ -304,13 +313,17 @@ export function GameView() {
               <ul className="space-y-2">
                 {shelfMeds.map((m) => (
                   <li key={m.id} className="animate-rise flex items-center gap-3 rounded-2xl border border-border/70 bg-card/70 p-2.5">
-                    <span className="size-9 shrink-0 rounded-lg" style={{ background: m.color }} />
+                    {m.image ? (
+                      <img src={m.image} alt={m.name} loading="lazy" className="size-10 shrink-0 rounded-lg object-cover" />
+                    ) : (
+                      <span className="size-10 shrink-0 rounded-lg" style={{ background: m.color }} />
+                    )}
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-semibold">{m.name}</p>
                       <p className="truncate text-xs text-muted-foreground">{m.description}</p>
                     </div>
                     <div className="shrink-0 text-left">
-                      <p className="text-sm font-bold text-primary">{m.price} ر.س</p>
+                      <p className="text-sm font-bold text-primary">{money(m.price)}</p>
                       <p className="text-[11px] text-muted-foreground">الكمية {m.stock}</p>
                     </div>
                   </li>
@@ -349,7 +362,7 @@ export function GameView() {
             <div className="absolute inset-0 animate-pulse-ring rounded-[2rem] border-2 border-primary" />
           </div>
           <div>
-            <h1 className="font-display text-3xl font-black tracking-tight">صيدلية النور</h1>
+            <h1 className="font-display text-3xl font-black tracking-tight">{PHARMACY_FULL_NAME}</h1>
             <p className="mt-1 text-sm text-muted-foreground">محاكي إدارة صيدلية ثلاثي الأبعاد</p>
           </div>
           <div className="h-1.5 w-56 overflow-hidden rounded-full bg-muted">

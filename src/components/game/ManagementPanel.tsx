@@ -15,8 +15,10 @@ import {
   X,
 } from "lucide-react";
 import { useGame, SHELF_COLORS, futureDate } from "@/game/store";
-import { CATEGORIES, type Category, type Medicine, type PackStyle } from "@/game/types";
+import { CATEGORIES, type Category, type Medicine, type PackStyle, type SaveData } from "@/game/types";
 import { audio } from "@/game/audio";
+import { PHARMACY_FULL_NAME, money, num, purchaseCost } from "@/game/format";
+import { parseSave } from "@/game/schema";
 
 type Tab = "inventory" | "storage" | "shelves" | "stats" | "settings";
 
@@ -60,7 +62,7 @@ export function ManagementPanel({
             </div>
             <div>
               <h2 className="font-display text-base font-bold leading-tight">نظام إدارة الصيدلية</h2>
-              <p className="text-xs text-muted-foreground">صيدلية النور • حفظ تلقائي</p>
+              <p className="text-xs text-muted-foreground">{PHARMACY_FULL_NAME} • حفظ تلقائي</p>
             </div>
           </div>
           <button
@@ -177,10 +179,14 @@ function InventoryTab() {
               className="animate-rise flex items-center gap-3 rounded-2xl border border-border/70 bg-card/80 p-3"
             >
               <div
-                className="grid size-12 shrink-0 place-items-center rounded-xl font-display text-lg font-bold text-primary-foreground"
+                className="grid size-12 shrink-0 place-items-center overflow-hidden rounded-xl font-display text-lg font-bold text-primary-foreground"
                 style={{ background: m.color }}
               >
-                {m.name.slice(0, 1)}
+                {m.image ? (
+                  <img src={m.image} alt={m.name} loading="lazy" className="size-full object-cover" />
+                ) : (
+                  m.name.slice(0, 1)
+                )}
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
@@ -197,7 +203,7 @@ function InventoryTab() {
                   {m.category} • {shelf ? shelf.name : "بدون رف"} • {m.expiry}
                 </p>
                 <p className="mt-0.5 text-xs font-semibold text-primary">
-                  {m.price} ر.س • الكمية {m.stock}
+                  {money(m.price)} • الكمية {m.stock}
                 </p>
               </div>
               <div className="flex shrink-0 gap-1.5">
@@ -256,6 +262,11 @@ function MedicineDialog({ value, onClose }: { value: Medicine | "new"; onClose: 
   const [form, setForm] = useState(base);
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
+  const setImage = (v: string | undefined) =>
+    setForm((f) => {
+      const { image: _drop, ...rest } = f;
+      return v ? { ...rest, image: v } : rest;
+    });
 
   const save = () => {
     if (!form.name.trim()) {
@@ -299,12 +310,12 @@ function MedicineDialog({ value, onClose }: { value: Medicine | "new"; onClose: 
             </select>
           </label>
           <label className="text-xs font-medium text-muted-foreground">
-            السعر (ر.س)
-            <input type="number" className={field} value={form.price} onChange={(e) => set("price", +e.target.value)} />
+            السعر (ريال يمني)
+            <input type="number" className={field} value={form.price} onChange={(e) => set("price", num(e.target.value, 0, 0, 1_000_000))} />
           </label>
           <label className="text-xs font-medium text-muted-foreground">
             المعروض على الرف
-            <input type="number" className={field} value={form.stock} onChange={(e) => set("stock", +e.target.value)} />
+            <input type="number" className={field} value={form.stock} onChange={(e) => set("stock", num(e.target.value, 0, 0, 100_000))} />
           </label>
           <label className="text-xs font-medium text-muted-foreground">
             الكمية في المخزن
@@ -312,7 +323,7 @@ function MedicineDialog({ value, onClose }: { value: Medicine | "new"; onClose: 
               type="number"
               className={field}
               value={form.warehouse}
-              onChange={(e) => set("warehouse", +e.target.value)}
+              onChange={(e) => set("warehouse", num(e.target.value, 0, 0, 1_000_000))}
             />
           </label>
           <label className="text-xs font-medium text-muted-foreground">
@@ -345,6 +356,36 @@ function MedicineDialog({ value, onClose }: { value: Medicine | "new"; onClose: 
               ))}
             </div>
           </div>
+          <div className="col-span-full text-xs font-medium text-muted-foreground">
+            صورة الدواء (اختيارية)
+            <div className="mt-1.5 flex items-center gap-3">
+              {form.image ? (
+                <img src={form.image} alt="" className="size-16 rounded-xl object-cover" />
+              ) : (
+                <span
+                  className="grid size-16 place-items-center rounded-xl text-xs text-muted-foreground"
+                  style={{ background: form.color }}
+                />
+              )}
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void thumbnail(f).then(setImage);
+                }}
+                className="text-xs"
+              />
+              {form.image && (
+                <button
+                  onClick={() => setImage(undefined)}
+                  className={`${btn} bg-danger/12 text-danger !px-3`}
+                >
+                  إزالة
+                </button>
+              )}
+            </div>
+          </div>
           <label className="col-span-full text-xs font-medium text-muted-foreground">
             الوصف
             <textarea
@@ -370,7 +411,7 @@ function MedicineDialog({ value, onClose }: { value: Medicine | "new"; onClose: 
 /* ---------------------------------------------------------------- shelves */
 
 function StorageTab() {
-  const { medicines, shelves, stockShelf, stockWarehouse, purchase } = useGame();
+  const { medicines, shelves, stockShelf, stockWarehouse, purchase, balance } = useGame();
   const [q, setQ] = useState("");
   const [step, setStep] = useState(5);
 
@@ -424,7 +465,11 @@ function StorageTab() {
           return (
             <article key={m.id} className="animate-rise rounded-2xl border border-border/70 bg-card/80 p-3">
               <div className="flex items-center gap-3">
-                <span className="size-9 shrink-0 rounded-xl" style={{ background: m.color }} />
+                {m.image ? (
+                  <img src={m.image} alt={m.name} loading="lazy" className="size-9 shrink-0 rounded-xl object-cover" />
+                ) : (
+                  <span className="size-9 shrink-0 rounded-xl" style={{ background: m.color }} />
+                )}
                 <div className="min-w-0 flex-1">
                   <h3 className="truncate text-sm font-semibold">{m.name}</h3>
                   <p className="truncate text-xs text-muted-foreground">
@@ -433,12 +478,14 @@ function StorageTab() {
                 </div>
                 <button
                   onClick={() => {
-                    audio.success();
-                    purchase(m.id, 10);
+                    if (purchase(m.id, 10)) audio.success();
+                    else audio.error();
                   }}
-                  className={`${btn} shrink-0 bg-secondary text-secondary-foreground !px-3`}
+                  disabled={purchaseCost(m.price, 10) > balance}
+                  className={`${btn} shrink-0 bg-secondary text-secondary-foreground !px-3 disabled:opacity-50`}
+                  title={money(purchaseCost(m.price, 10))}
                 >
-                  <Plus className="size-4" /> شراء ١٠
+                  <Plus className="size-4" /> شراء ١٠ ({money(purchaseCost(m.price, 10))})
                 </button>
               </div>
               <div className="mt-2 grid grid-cols-2 gap-2 text-center">
@@ -590,7 +637,7 @@ function StatsTab() {
   const max = Math.max(1, ...byCat.map((b) => b.n));
 
   const cards = [
-    { label: "قيمة المخزون", value: `${total.toLocaleString("ar-EG")} ر.س` },
+    { label: "قيمة المخزون", value: money(total) },
     { label: "عدد الأصناف", value: medicines.length },
     { label: "عدد الرفوف", value: shelves.length },
     { label: "مخزون منخفض", value: low.length },
@@ -629,6 +676,27 @@ function StatsTab() {
   );
 }
 
+/** Downscale any picked image to a 192px square JPEG data-URL. */
+async function thumbnail(file: File, size = 192): Promise<string> {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise<HTMLImageElement>((res, rej) => {
+      const i = new Image();
+      i.onload = () => res(i);
+      i.onerror = rej;
+      i.src = url;
+    });
+    const c = document.createElement("canvas");
+    c.width = c.height = size;
+    const x = c.getContext("2d")!;
+    const s2 = Math.min(img.width, img.height);
+    x.drawImage(img, (img.width - s2) / 2, (img.height - s2) / 2, s2, s2, 0, 0, size, size);
+    return c.toDataURL("image/jpeg", 0.82);
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
 /* --------------------------------------------------------------- settings */
 
 function SettingsTab() {
@@ -651,7 +719,13 @@ function SettingsTab() {
     r.onload = () => {
       try {
         const parsed = JSON.parse(String(r.result));
-        importSave(parsed.state ?? parsed);
+        const res = parseSave(parsed.state ?? parsed);
+        if (!res.ok) {
+          audio.error();
+          setMsg(`ملف غير صالح: ${res.error}`);
+          return;
+        }
+        importSave(res.data as unknown as Partial<SaveData>);
         audio.success();
         setMsg("تم استيراد النسخة الاحتياطية بنجاح");
       } catch {
