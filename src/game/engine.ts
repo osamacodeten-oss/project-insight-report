@@ -1092,6 +1092,7 @@ export class PharmacyEngine {
       group.rotation.y = slot.rot;
       group.scale.setScalar(old ? 1 : 0.001);
       group.userData['grow'] = old ? 1 : 0;
+      group.userData['dims'] = [width, depth];
       this.scene.add(group);
       this.shelfGroups.set(shelf.id, group);
       this.shelfSig.set(shelf.id, sig);
@@ -1112,10 +1113,9 @@ export class PharmacyEngine {
       if (!group) continue;
       const slot = SHELF_SLOTS[shelf.slot % SHELF_SLOTS.length]!;
       const rotated = Math.abs(Math.sin(slot.rot)) > 0.5;
-      const bb = new THREE.Box3().setFromObject(group);
-      const size = bb.getSize(this._v1);
-      const w = rotated ? size.z : size.x;
-      const d = rotated ? size.x : size.z;
+      const [gw, gd] = (group.userData['dims'] as [number, number] | undefined) ?? [1.9, 0.7];
+      const w = rotated ? gd : gw;
+      const d = rotated ? gw : gd;
       const col: Collider & { shelf?: boolean } = {
         minX: slot.x - w / 2,
         maxX: slot.x + w / 2,
