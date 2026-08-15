@@ -22,7 +22,7 @@ export function GameView() {
   const [running, setRunning] = useState(false);
 
   const store = useGame();
-  const { shelves, medicines, settings, player, setPlayer } = store;
+  const { shelves, medicines, settings, player, setPlayer, balance } = store;
 
   /* ---- engine boot */
   useEffect(() => {
@@ -246,10 +246,11 @@ export function GameView() {
 
           <div className="absolute inset-x-0 top-0 z-10 flex items-start justify-between p-3">
             <div className="glass-panel rounded-2xl px-3.5 py-2">
-              <p className="font-display text-sm font-bold leading-tight">صيدلية عبدالرحمن</p>
+              <p className="font-display text-sm font-bold leading-tight">{PHARMACY_FULL_NAME}</p>
               <p className="text-[11px] text-muted-foreground">
                 {medicines.length} صنف • {shelves.length} رف
               </p>
+              <p className="text-[11px] font-bold text-primary">{money(balance)}</p>
             </div>
             <button onClick={() => { audio.click(); setManageTab("inventory"); setPanel("manage"); }} className={`${btn} size-12 rounded-2xl`} aria-label="القائمة">
               <Menu className="size-5" />
@@ -361,7 +362,7 @@ export function GameView() {
             <div className="absolute inset-0 animate-pulse-ring rounded-[2rem] border-2 border-primary" />
           </div>
           <div>
-            <h1 className="font-display text-3xl font-black tracking-tight">صيدلية عبدالرحمن</h1>
+            <h1 className="font-display text-3xl font-black tracking-tight">{PHARMACY_FULL_NAME}</h1>
             <p className="mt-1 text-sm text-muted-foreground">محاكي إدارة صيدلية ثلاثي الأبعاد</p>
           </div>
           <div className="h-1.5 w-56 overflow-hidden rounded-full bg-muted">
