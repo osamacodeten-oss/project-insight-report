@@ -176,7 +176,8 @@ export class PharmacyEngine {
     const sun = new THREE.DirectionalLight(0xffeedd, 0.85);
     sun.position.set(6, 13, 19);
     sun.castShadow = true;
-    sun.shadow.mapSize.set(quality === "high" ? 2048 : 1024, quality === "high" ? 2048 : 1024);
+    const shadowSize = this.quality === "high" ? 2048 : 1024;
+    sun.shadow.mapSize.set(shadowSize, shadowSize);
     sun.shadow.camera.left = -22;
     sun.shadow.camera.right = 22;
     sun.shadow.camera.top = 20;
